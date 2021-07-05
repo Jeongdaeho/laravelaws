@@ -5,11 +5,6 @@ Description: >
     and default routes for them in the private subnets.
 
 Parameters:
-
-    EnvironmentName:
-        Description: An environment name that will be prefixed to resource names
-        Type: String
-
     VpcCIDR: 
         Description: Please enter the IP range (CIDR notation) for this VPC
         Type: String
@@ -41,17 +36,20 @@ Resources:
         Type: AWS::EC2::VPC
         Properties:
             CidrBlock: !Ref VpcCIDR
-            Tags: 
-                - Key: Name 
-                  Value: !Ref EnvironmentName
-            
+            Tags:
+                - Key: Name
+                  Value: !Join ["", [!Ref AWS::StackName, "-VPC"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
     InternetGateway:
         Type: AWS::EC2::InternetGateway
         Properties:
-            Tags:
-                - Key: Name
-                  Value: !Ref EnvironmentName
-            
+        Tags: 
+            - Key: Name
+              Value: !Join ["", [!Ref AWS::StackName, "-Gateway"]]
+            - Key: Application 
+              Value: !Ref AWS::StackName
+           
     InternetGatewayAttachment:
         Type: AWS::EC2::VPCGatewayAttachment
         Properties:
@@ -66,8 +64,10 @@ Resources:
             CidrBlock: !Ref PublicSubnet1CIDR
             MapPublicIpOnLaunch: true
             Tags: 
-                - Key: Name 
-                  Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " Public Subnet (AZ1)"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 
     PublicSubnet2:
         Type: AWS::EC2::Subnet
@@ -76,9 +76,11 @@ Resources:
             AvailabilityZone: !Select [ 1, !GetAZs ]
             CidrBlock: !Ref PublicSubnet2CIDR
             MapPublicIpOnLaunch: true
-            Tags:
-                - Key: Name
-                  Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " Public Subnet (AZ2)"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 
     PrivateSubnet1:
         Type: AWS::EC2::Subnet
@@ -87,9 +89,11 @@ Resources:
             AvailabilityZone: !Select [ 0, !GetAZs ]
             CidrBlock: !Ref PrivateSubnet1CIDR
             MapPublicIpOnLaunch: false
-            Tags:
-                - Key: Name
-                  Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " Private Subnet (AZ1)"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 
     PrivateSubnet2:
         Type: AWS::EC2::Subnet
@@ -98,10 +102,13 @@ Resources:
             AvailabilityZone: !Select [ 1, !GetAZs ]
             CidrBlock: !Ref PrivateSubnet2CIDR
             MapPublicIpOnLaunch: false
-            Tags:
-                - Key: Name
-                  Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " Private Subnet (AZ2)"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 
+    # NatGateway 설정을 하지 않으면 private subnet 에 있는 인스턴스들이 업데이트가 안된다.
     NatGateway1EIP:
         Type: AWS::EC2::EIP
         DependsOn: InternetGatewayAttachment
@@ -117,12 +124,24 @@ Resources:
     NatGateway1:
         Type: AWS::EC2::NatGateway
         Properties:
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " NatGateway 1"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
+
             AllocationId: !GetAtt NatGateway1EIP.AllocationId
             SubnetId: !Ref PublicSubnet1
 
     NatGateway2:
         Type: AWS::EC2::NatGateway
         Properties:
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " NatGateway 2"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
+ 
             AllocationId: !GetAtt NatGateway2EIP.AllocationId
             SubnetId: !Ref PublicSubnet2
 
@@ -132,8 +151,9 @@ Resources:
             VpcId: !Ref VPC
             Tags: 
                 - Key: Name 
-                  Value: !Sub ${EnvironmentName} Public Routes
-
+                  Value: !Join ["", [!Ref AWS::StackName, " Public Routes"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
     DefaultPublicRoute: 
         Type: AWS::EC2::Route
         DependsOn: InternetGatewayAttachment
@@ -159,42 +179,45 @@ Resources:
         Properties:
             VpcId: !Ref VPC
             Tags:
-                - Key: Name
-                  Value: !Sub ${EnvironmentName} Private Routes (AZ1)
-
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " Private Routes (AZ1)"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
     DefaultPrivateRoute1:
-      Type: AWS::EC2::Route
-      Properties:
-        RouteTableId: !Ref PrivateRouteTable1
-        DestinationCidrBlock: 0.0.0.0/0
-        NatGatewayId: !Ref NatGateway1
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable1
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway1
 
     PrivateSubnet1RouteTableAssociation:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-        RouteTableId: !Ref PrivateRouteTable1
-        SubnetId: !Ref PrivateSubnet1
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable1
+            SubnetId: !Ref PrivateSubnet1
 
     PrivateRouteTable2:
-      Type: AWS::EC2::RouteTable
-      Properties:
-        VpcId: !Ref VPC
-        Tags:
-          - Key: Name
-            Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, " Private Routes (AZ2)"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName        
 
     DefaultPrivateRoute2:
-      Type: AWS::EC2::Route
-      Properties:
-        RouteTableId: !Ref PrivateRouteTable2
-        DestinationCidrBlock: 0.0.0.0/0
-        NatGatewayId: !Ref NatGateway2
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable2
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway2
 
     PrivateSubnet2RouteTableAssociation:
-      Type: AWS::EC2::SubnetRouteTableAssociation
-      Properties:
-        RouteTableId: !Ref PrivateRouteTable2
-        SubnetId: !Ref PrivateSubnet2
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable2
+            SubnetId: !Ref PrivateSubnet2
 
     # This security group defines who/where is allowed to access the ECS hosts directly.
     # By default we're just allowing access from the load balancer.  If you want to SSH
@@ -202,19 +225,21 @@ Resources:
     ECSSecurityGroup:
         Type: AWS::EC2::SecurityGroup
         Properties:
-           VpcId: !Ref VPC
-           GroupDescription: Access to the ECS hosts and the tasks/containers that run on them
-           SecurityGroupIngress:
-               # Only allow inbound access to ECS from the ELB
-               - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
-                 IpProtocol: -1
-               - IpProtocol: tcp
-                 CidrIp: 0.0.0.0/0
-                 FromPort: '22'
-                 ToPort: '22'
-           Tags:
-               - Key: Name
-                 Value: !Sub ${EnvironmentName}-ECS-Hosts
+            VpcId: !Ref VPC
+            GroupDescription: Access to the ECS hosts and the tasks/containers that run on them
+            SecurityGroupIngress:
+                # Only allow inbound access to ECS from the ELB
+                - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+                  IpProtocol: -1
+                - IpProtocol: tcp
+                  CidrIp: 0.0.0.0/0
+                  FromPort: '22'
+                  ToPort: '22'
+            Tags:
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, "-ECS-Hosts"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 
     # This security group defines who/where is allowed to access the Application Load Balancer.
     # By default, we've opened this up to the public internet (0.0.0.0/0) but can you restrict
@@ -222,30 +247,33 @@ Resources:
     LoadBalancerSecurityGroup:
         Type: AWS::EC2::SecurityGroup
         Properties:
-           VpcId: !Ref VPC
-           GroupDescription: Access to the load balancer that sits in front of ECS
-           SecurityGroupIngress:
-               # Allow access from anywhere to our ECS services
-               - CidrIp: 0.0.0.0/0
-                 IpProtocol: -1
-           Tags:
-               - Key: Name
-                 Value: !Sub ${EnvironmentName}-LoadBalancers
+            VpcId: !Ref VPC
+            GroupDescription: Access to the load balancer that sits in front of ECS
+            SecurityGroupIngress:
+                # Allow access from anywhere to our ECS services
+                - CidrIp: 0.0.0.0/0
+                  IpProtocol: -1
+            Tags:
+                - Key: Name
+                  Value: !Join ["", [!Ref AWS::StackName, "-LoadBalancers"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 
     DBSecurityGroup:
         Type: AWS::EC2::SecurityGroup
         Properties:
-          GroupDescription: Open database for access
-          VpcId: !Ref VPC
-          SecurityGroupIngress:
-              - IpProtocol: tcp
-                FromPort: '3306'
-                ToPort: '3306'
-                SourceSecurityGroupId: !Ref ECSSecurityGroup
-          Tags:
-              - Key: Name
-                Value: !Sub ${EnvironmentName}-DB-Host
-
+            GroupDescription: Open database for access
+            VpcId: !Ref VPC
+            SecurityGroupIngress:
+                - IpProtocol: tcp
+                  FromPort: '3306'
+                  ToPort: '3306'
+                  SourceSecurityGroupId: !Ref ECSSecurityGroup
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, "-DB"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
 Outputs: 
 
     VPC: 

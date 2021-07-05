@@ -3,9 +3,17 @@ Description: A basic CloudFormation template for an RDS Aurora cluster.
 Parameters:
 
     DatabaseInstanceType:
-        Default: db.t2.small
+        Default: db.t3.micro
         Description: The instance type to use for the database.
         Type: String
+        AllowedValues :
+            - "db.t2.micro"     # 프리티어 가능한 경우만.
+            - "db.t3.micro"
+            - "db.t3.small"
+            - "db.t3.medium"
+            - "db.t3.large"
+            - "db.m6g.large"
+
 
     DatabasePassword:
         AllowedPattern: "[a-zA-Z0-9]+"
@@ -87,11 +95,15 @@ Resources:
         Properties:
             DBSubnetGroupDescription: CloudFormation managed DB subnet group.
             SubnetIds: !Ref DatabaseSubnets
-
+            Tags: 
+                - Key: "Name"
+                  Value: !Join ["", [!Ref AWS::StackName, "-DBSubnetGroup"]]
+                - Key: Application 
+                  Value: !Ref AWS::StackName
     DatabaseCluster:
         Type: AWS::RDS::DBCluster
         Properties:
-            Engine: aurora
+            Engine: MariaDB
             DatabaseName: !Ref DatabaseName
             MasterUsername: !Ref DatabaseUsername
             MasterUserPassword: !Ref DatabasePassword
@@ -102,12 +114,12 @@ Resources:
             KmsKeyId: !GetAtt KmsKey.Arn
             StorageEncrypted: true
             VpcSecurityGroupIds:
-              - !Ref DatabaseSecurityGroup
+                - !Ref DatabaseSecurityGroup
 
     DatabasePrimaryInstance:
         Type: AWS::RDS::DBInstance
         Properties:
-            Engine: aurora
+            Engine: MariaDB 
             DBClusterIdentifier: !Ref DatabaseCluster
             DBInstanceClass: !Ref DatabaseInstanceType
             DBSubnetGroupName: !Ref DatabaseSubnetGroup
@@ -124,8 +136,9 @@ Resources:
     AlarmTopic:
         Type: AWS::SNS::Topic
         Properties:
+            # 배열 형식
             Subscription:
-                - Endpoint: hi@getlionel.com
+                - Endpoint: ohead@weisure.co.kr
                   Protocol: email
 
     DatabasePrimaryCPUAlarm:
@@ -149,39 +162,40 @@ Resources:
             InsufficientDataActions:
                 - Ref: AlarmTopic
 
-#    DatabaseReplicaCPUAlarm:
-#        Type: AWS::CloudWatch::Alarm
-#        Properties:
-#            AlarmDescription: Replica database CPU utilization is over 80%.
-#            Namespace: AWS/RDS
-#            MetricName: CPUUtilization
-#            Unit: Percent
-#            Statistic: Average
-#            Period: 300
-#            EvaluationPeriods: 2
-#            Threshold: 80
-#            ComparisonOperator: GreaterThanOrEqualToThreshold
-#            Dimensions:
-#                - Name: DBInstanceIdentifier
-#                  Value:
-#                      Ref: DatabaseReplicaInstance
-#            AlarmActions:
-#                - Ref: AlarmTopic
-#            InsufficientDataActions:
-#                - Ref: AlarmTopic
+    # DatabaseReplicaCPUAlarm:
+    #     Type: AWS::CloudWatch::Alarm
+    #     Properties:
+    #         AlarmDescription: Replica database CPU utilization is over 80%.
+    #         Namespace: AWS/RDS
+    #         MetricName: CPUUtilization
+    #         Unit: Percent
+    #         Statistic: Average
+    #         Period: 300
+    #         EvaluationPeriods: 2
+    #         Threshold: 80
+    #         ComparisonOperator: GreaterThanOrEqualToThreshold
+    #         Dimensions:
+    #             - Name: DBInstanceIdentifier
+    #                 Value:
+    #                     Ref: DatabaseReplicaInstance
+    #         AlarmActions:
+    #             - Ref: AlarmTopic
+    #         InsufficientDataActions:
+    #             - Ref: AlarmTopic
 
     DatabasePrimaryMemoryAlarm:
         Type: AWS::CloudWatch::Alarm
         Properties:
-            AlarmDescription: Primary database freeable memory is under 700MB.
+            AlarmDescription: Primary database memory utilization is over 80%.
             Namespace: AWS/RDS
             MetricName: FreeableMemory
-            Unit: Bytes
+            Unit: Percent
             Statistic: Average
             Period: 300
             EvaluationPeriods: 2
-            Threshold: 700000000
-            ComparisonOperator: LessThanOrEqualToThreshold
+            Threshold: 80
+            ComparisonOperator: GreaterThanOrEqualToThreshold
+            # ComparisonOperator: LessThanOrEqualToThreshold
             Dimensions:
                 - Name: DBInstanceIdentifier
                   Value:
